@@ -16,8 +16,7 @@ class AppTests(unittest.TestCase):
   except urllib.error.HTTPError as e:return e.code,json.load(e)
  def test_full_workflow(self):
   c=self.client(); other=self.client()
-  self.assertEqual(self.call(c,'state')[0],401)
-  self.assertEqual(self.call(c,'register',{'email':'one@example.com','password':'verylongpassword'})[0],200)
+  self.assertEqual(self.call(c,'state')[0],200)
   self.assertEqual(self.call(c,'state')[1]['batches'],[])
   add={'key':'add-one','name':'Bananas','quantity':6,'unit':'pieces','location':'Pantry','acquired_at':'2026-11-05'}
   self.assertEqual(self.call(c,'batches',add)[0],200);self.call(c,'batches',add)
@@ -36,7 +35,7 @@ class AppTests(unittest.TestCase):
   shop=self.call(c,'state')[1]['shopping'][0]
   self.call(c,'shopping',{'key':'purchase','id':shop['id'],'purchased':True})
   self.assertEqual(len(self.call(c,'state')[1]['batches']),2)
-  self.call(other,'register',{'email':'two@example.com','password':'verylongpassword'})
+  self.assertEqual(self.call(other,'state')[0],200)
   self.assertEqual(self.call(other,'state')[1]['batches'],[])
   self.assertEqual(self.call(other,'event',{'key':'attack','id':b['id'],'version':4,'action':'CONSUME','amount':1})[0],422)
   self.call(c,'delete',{'key':'delete'});self.assertEqual(self.call(c,'state')[1]['batches'],[])

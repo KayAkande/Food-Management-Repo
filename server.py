@@ -14,6 +14,7 @@ class Handler(SimpleHTTPRequestHandler):
  def log_message(self,*args): pass
  def respond(self,data,status=200,cookie=None):
   body=json.dumps(data).encode(); self.send_response(status); self.send_header('Content-Type','application/json'); self.send_header('Cache-Control','no-store'); self.send_header('X-Content-Type-Options','nosniff')
+  cookie=cookie or getattr(self,'guest_cookie',None)
   if cookie: self.send_header('Set-Cookie',cookie)
   self.end_headers(); self.wfile.write(body)
  def do_GET(self):
@@ -47,7 +48,14 @@ class Handler(SimpleHTTPRequestHandler):
      t=secrets.token_urlsafe(32); expires=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(days=7)).isoformat(); c.execute('INSERT INTO sessions VALUES (?,?,?)',(t,uid,expires))
      secure='; Secure' if os.environ.get('COOKIE_SECURE')=='1' else ''
      return self.respond({'email':email},cookie=f'session={t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800{secure}')
-    if not user: return self.respond({'error':'Please sign in'},401)
+    if not user:
+     uid=str(uuid.uuid4()); t=secrets.token_urlsafe(32)
+     expires=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(days=3650)).isoformat()
+     c.execute('INSERT INTO users VALUES (?,?,?,?)',(uid,'guest-'+uid+'@local.invalid','',''))
+     c.execute('INSERT INTO sessions VALUES (?,?,?)',(t,uid,expires)); c.commit()
+     secure='; Secure' if os.environ.get('COOKIE_SECURE')=='1' else ''
+     self.guest_cookie=f'session={t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=315360000{secure}'
+     user=c.execute('SELECT * FROM users WHERE id=?',(uid,)).fetchone()
     uid=user['id']
     if path=='/api/logout':
      c.execute('DELETE FROM sessions WHERE token=?',(token,)); return self.respond({},cookie='session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
